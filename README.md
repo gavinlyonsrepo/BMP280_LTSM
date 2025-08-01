@@ -4,8 +4,6 @@
 
 ## Table of contents
 
-## Table of contents
-
 - [Overview](#overview)
 - [Installation](#installation)
 - [Software](#software)
