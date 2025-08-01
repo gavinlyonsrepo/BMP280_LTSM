@@ -1,0 +1,104 @@
+#######################################
+# Class
+#######################################
+BMP280_Sensor	KEYWORD1
+
+#######################################
+# Functions (Public Methods)
+#######################################
+InitSensor	KEYWORD2
+CheckConnectionI2C	KEYWORD2
+readConfig	KEYWORD2
+writeConfig	KEYWORD2
+readForChipID	KEYWORD2
+getChipID	KEYWORD2
+getData	KEYWORD2
+setRegister	KEYWORD2
+readRegister	KEYWORD2
+setPowerMode	KEYWORD2
+readPowerMode	KEYWORD2
+getPowerMode	KEYWORD2
+reset	KEYWORD2
+setOversampling	KEYWORD2
+readOversampling	KEYWORD2
+getOversampling	KEYWORD2
+takeForcedMeasurement	KEYWORD2
+readRawTemperature	KEYWORD2
+getRawTemperature	KEYWORD2
+readTemperature	KEYWORD2
+getTemperature	KEYWORD2
+readRawPressure	KEYWORD2
+getRawPressure	KEYWORD2
+readPressure	KEYWORD2
+getPressure	KEYWORD2
+readAltitude	KEYWORD2
+seaLevelForAltitude	KEYWORD2
+
+#######################################
+# Enums / Constants
+#######################################
+CommMode_e	KEYWORD1
+PowerMode_e	KEYWORD1
+DataType_e	KEYWORD1
+Registers_e	KEYWORD1
+PressureUnit_e	KEYWORD1
+sensorSampling_e	KEYWORD1
+Filter_e	KEYWORD1
+StandBy_e	KEYWORD1
+
+Sampling_None	LITERAL1
+Sampling_X1	LITERAL1
+Sampling_X2	LITERAL1
+Sampling_X4	LITERAL1
+Sampling_X8	LITERAL1
+Sampling_X16	LITERAL1
+
+Filter_OFF	LITERAL1
+Filter_X2	LITERAL1
+Filter_X4	LITERAL1
+Filter_X8	LITERAL1
+Filter_X16	LITERAL1
+
+StandBy_MS_1	LITERAL1
+StandBy_MS_63	LITERAL1
+StandBy_MS_125	LITERAL1
+StandBy_MS_250	LITERAL1
+StandBy_MS_500	LITERAL1
+StandBy_MS_1000	LITERAL1
+StandBy_MS_2000	LITERAL1
+StandBy_MS_4000	LITERAL1
+
+DIG_T1_Reg	LITERAL1
+Chip_ID	LITERAL1
+Reset	LITERAL1
+Status	LITERAL1
+Ctrl_Meas	LITERAL1
+Config	LITERAL1
+Press_MSB	LITERAL1
+Press_LSB	LITERAL1
+Press_XLSB	LITERAL1
+Temp_MSB	LITERAL1
+Temp_LSB	LITERAL1
+Temp_XLSB	LITERAL1
+
+Pa	LITERAL1
+hPa	LITERAL1
+
+SPI	KEYWORD1
+I2C	KEYWORD1
+Sleep	LITERAL1
+Forced	LITERAL1
+Normal	LITERAL1
+Temperature	LITERAL1
+Pressure	LITERAL1
+
+#######################################
+# Macros
+#######################################
+BMP280_DEBUG	LITERAL1
+BMP_SPI_FREQ	LITERAL1
+BMP_SPI_CLOCK_DIV	LITERAL1
+BMP_SPI_DIRECTION	LITERAL1
+BMP_SPI_MODE	LITERAL1
+BMP_SPI_TRANSACTION_START	LITERAL1
+BMP_SPI_TRANSACTION_END	LITERAL1

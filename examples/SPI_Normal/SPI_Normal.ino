@@ -1,47 +1,61 @@
 /*!
-	@file examples/bmp280/main.cpp
-	@brief RPI PICO SDK C++ bmp280 library test file, basic use, normal mode , SPI hardware
+	@file SPI_normal.ino
+	@brief arduino C++ bmp280 library test file, basic use, normal mode , SPI hardware
 	@details bmp280 is a digital pressure sensor with temperature measurement capabilities.
+          connections ESP32, D23 = MOSI(SDA), D19 = MISO(SDO), D18 = SCLK, User defined = CS(CSB)
+          Normal mode comprises an automated
+          perpetual cycling between an active measurement period and an inactive standby period.
+  @author Gavin lyons at LionTron Systems
 */
 
-#include <stdio.h>
-#include "pico/stdlib.h"
-#include "bmp280/bmp280.hpp"
+#include "bmp280_ltsm.hpp"
 
-#define SPI_PORT spi0 // SPI port spi0 or spi1
-#define SPI_BAUDRATE 500000 // 500kHz 
-#define CS 17   // CSB GPIO pin
-#define MOSI 19 // SDA GPIO pin
-#define SCK 18  // SCL GPIO pin
-#define MISO 16 // SDO GPIO pin
+uint8_t ChipSelectPin = 4;  // User defined chip select pin, D4
+BMP280_Sensor bmp280(ChipSelectPin);
 
-BMP280_Sensor bmp280(SPI_PORT, SPI_BAUDRATE, CS, MOSI, SCK, MISO);
+void setup() {
+  Serialinit();
+}
 
-int main() {
-	stdio_init_all();
-	sleep_ms(1000);
-	printf("\n--- START Normal SPI ---\n");
-	bmp280.InitSensor();
+void loop() {
+  Serial.println("--- START Normal SPI ---");
+  bmp280.InitSensor();
 
-	uint8_t chipID = 0;
-	chipID = bmp280.readForChipID();
-	printf("Chip ID: %#x\n", chipID); // Should read 0x56 - 0x58 for BMP280 060 for BME280
-	uint16_t counter = 0;
-	while(counter < 60)
-	{
-		printf("Test Count: %u\n", counter);
+  uint8_t chipID = 0;
+  chipID = bmp280.readForChipID();
+  Serial.print("CHIP ID: ");
+  Serial.println(chipID, HEX);  // Should read 0x56-0x58 for BMP280, 0x60 for BME280
+  delay(2000);
 
-		// Test 1 Temperature 
-		printf("Temperature oversampling: %u\n",static_cast<uint8_t>(bmp280.readOversampling(BMP280_Sensor::DataType_e::Temperature)));
-		printf("Temperature: %f[C]\n", bmp280.readTemperature());
-		// Test 2 Pressure
-		printf("Pressure oversampling: %u\n", static_cast<uint8_t>(bmp280.readOversampling(BMP280_Sensor::DataType_e::Pressure)));
-		printf("Pressure: %f[hPa]\n", bmp280.readPressure(BMP280_Sensor::PressureUnit_e::hPa));
+  uint16_t counter = 0;
+  while (counter < 60) {
+    Serial.print("Test Count: ");
+    Serial.println(counter, DEC);
+    // Test 1 Temperature
+    Serial.print("Temperature oversampling: ");
+    Serial.println(static_cast<uint8_t>(bmp280.readOversampling(BMP280_Sensor::DataType_e::Temperature)));
+    Serial.print("Temperature: [C] = ");
+    Serial.println(bmp280.readTemperature(), 2);
+    // Test 2 Pressure
+    Serial.print("Pressure oversampling: ");
+    Serial.println(static_cast<uint8_t>(bmp280.readOversampling(BMP280_Sensor::DataType_e::Pressure)));
+    Serial.print("Pressure: [hPa] = ");
+    Serial.println(bmp280.readPressure(BMP280_Sensor::PressureUnit_e::hPa), 2);
+    Serial.println("");
+    // Test 2C Altitude adjustment optional
+    //uint16_t altMets = 95; // altitude in meters
+    //Serial.print("Pressure adjusted: [hPa]");
+    //Serial.println(bmp280.seaLevelForAltitude(altMets, bmp280.readPressure(BMP280_Sensor::PressureUnit_e::hPa)));
+    delay(3000);
+    counter++;
+  }
+  Serial.println("--- END ---");
+  while(1){};
+}
 
-		printf("\n\n");
-		sleep_ms(3000);
-		counter++;
-	}
-	bmp280.DeInitSensor();
-	printf("--- END ---\n");
+//Function to setup serial called from setup
+void Serialinit() {
+  Serial.begin(38400);
+  delay(1000);
+  Serial.println("--Comms UP BMP280--");
 }

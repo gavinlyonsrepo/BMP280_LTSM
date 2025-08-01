@@ -1,34 +1,23 @@
 /*!
-	@file bmp280.cpp
-	@brief source header file for bmp280 pressure sensor 
+	@file bmp280_ltsm.cpp
+	@brief source file for bmp280 pressure sensor library, arduino library
 */
 
 #include "bmp280_ltsm.hpp"
 
 /*!
-	@brief Constructor.
-	@param spi Instance of SPI.
-	@param baudRate SPI speed in Hertz
-	@param cs Chip-select Pin.
-	@param mosi Master out slave in pin.
-	@param sck Serial clock pin.
-	@param miso Master in slave out pin.
+	@brief Constructor SPI mode.
+	@param csPin Chip select pin for SPI communication.
 */
-// BMP280_Sensor::BMP280_Sensor(spi_inst_t *spi, uint32_t baudRate, uint8_t cs, uint8_t mosi, uint8_t sck, uint8_t miso)
-// {
-// 	_spiInst = spi;
-// 	_baudRate = baudRate;
-// 	_cs = cs;
-// 	_mosi = mosi;
-// 	_sck = sck;
-// 	_miso = miso;
-// 	_commMode = CommMode_e::SPI;
-// }
+BMP280_Sensor::BMP280_Sensor(uint8_t csPin) {
+	_csPin = csPin;
+	_commMode = CommMode_e::SPI;
+}
 
 /*!
 	@brief Constructor I2C mode.
-	@param address 
-	@param twi
+	@param address I2C address of the sensor.
+	@param twi Pointer to the TwoWire instance for I2C communication.
 */
 BMP280_Sensor::BMP280_Sensor(uint8_t address, TwoWire *twi){
 	_address  = address;
@@ -38,10 +27,10 @@ BMP280_Sensor::BMP280_Sensor(uint8_t address, TwoWire *twi){
 
 /*! 
 	@brief Init hardware
+	@return true if sensor initialized successfully, otherwise false.
 */
 bool BMP280_Sensor::InitSensor(void)
 {
-
 	if (_commMode == CommMode_e::I2C)
 	{
 			int I2CReturnCode= 0;
@@ -56,14 +45,16 @@ bool BMP280_Sensor::InitSensor(void)
 						Serial.print("I2CReturnCode: ");
 						Serial.println(I2CReturnCode);
 					#endif
-					return false;      //Check if the sensor  is connected
+					return false;
 				}else{
 					#if BMP280_DEBUG
 						Serial.print("I2C Success Init : ");
 					#endif
 				}
 	} else {
-		// SPI communication not implemented in this version
+		pinMode(_csPin, OUTPUT);
+		digitalWrite(_csPin, HIGH); // Deselect sensor
+		SPI.begin();
 	}
 	delay(100); 
 	StartUpRoutine();
@@ -73,7 +64,7 @@ bool BMP280_Sensor::InitSensor(void)
 
 
 /*! 
-	@brief start up routine
+	@brief Start up routine
 	@details Set default power mode, oversampling and get trimming parameters.
 */
 void BMP280_Sensor::StartUpRoutine(void)
@@ -128,15 +119,27 @@ int32_t BMP280_Sensor::getData(Registers_e reg, bool threeRegsRead)
 	uint8_t regVal = static_cast<uint8_t>(reg);
 	if (_commMode == CommMode_e::SPI)
 	{
-		// SPI communication not implemented in Arduino version
-		// You can implement using Arduino SPI functions if needed
-	}
-	else
-	{
+		BMP_SPI_TRANSACTION_START;	
+		digitalWrite(_csPin, LOW);
+		regVal |= _SPI_COMM_MASK;
+		SPI.transfer(regVal); // Send register address with read bit set
+		if (threeRegsRead)
+		{
+			SPI.transfer(buffer, 3); // transfer reads into buffer[0..2]
+			result = ((uint32_t)buffer[0] << 12) |
+					((uint32_t)buffer[1] << 4) |
+					((uint32_t)buffer[2] >> 4);
+		}else{
+			buffer[0] = SPI.transfer(0x00); // dummy write to read one byte
+			result = buffer[0];
+		}
+		digitalWrite(_csPin, HIGH);
+		BMP_SPI_TRANSACTION_END;
+	}else{
 		// Write register address
 		Wire.beginTransmission(_address);
 		Wire.write(regVal);
-		int returnValue = Wire.endTransmission(false); // repeated start
+		int returnValue = Wire.endTransmission(false);
 		if (returnValue != 0)
 		{
 			#if BMP280_DEBUG
@@ -163,9 +166,7 @@ int32_t BMP280_Sensor::getData(Registers_e reg, bool threeRegsRead)
 			result = ((uint32_t)buffer[0] << 12) |
 			         ((uint32_t)buffer[1] << 4) |
 			         ((uint32_t)buffer[2] >> 4);
-		}
-		else
-		{
+		}else{
 			int bytesRead = Wire.requestFrom((int)_address, 1);
 			if (bytesRead < 1)
 			{
@@ -210,11 +211,14 @@ bool BMP280_Sensor::setRegister(Registers_e reg, uint8_t config, bool check)
 			#endif
 			return false;
 		}
-	}
-	else
-	{
-		// SPI communication not implemented yet
-		// Use Arduino SPI library if needed
+	}else{
+		BMP_SPI_TRANSACTION_START;
+		digitalWrite(_csPin, LOW);
+		uint8_t writeAddr = regVal & ~_SPI_COMM_MASK;
+		SPI.transfer(writeAddr);   // Send register address
+		SPI.transfer(config);      // Send the data byte
+		digitalWrite(_csPin, HIGH);
+		BMP_SPI_TRANSACTION_END;
 	}
 
 	if (!check)
@@ -235,7 +239,6 @@ uint8_t BMP280_Sensor::readRegister(Registers_e reg)
 	if (_commMode == CommMode_e::I2C)
 	{
 		uint8_t regVal = static_cast<uint8_t>(reg);
-
 		// Write the register address with a repeated start
 		Wire.beginTransmission(_address);
 		Wire.write(regVal);
@@ -259,10 +262,14 @@ uint8_t BMP280_Sensor::readRegister(Registers_e reg)
 			return 0xFF;
 		}
 		buffer = Wire.read();
-	}
-	else
-	{
-		// SPI communication not implemented in this version
+	}else{
+		BMP_SPI_TRANSACTION_START;
+		digitalWrite(_csPin, LOW);
+		uint8_t regVal = static_cast<uint8_t>(reg) | _SPI_COMM_MASK; // set MSB for read
+		SPI.transfer(regVal); // send register address
+		buffer = SPI.transfer(0x00); // dummy byte to receive data
+		digitalWrite(_csPin, HIGH);
+		BMP_SPI_TRANSACTION_END;
 	}
 
 	return buffer;
@@ -578,13 +585,18 @@ void BMP280_Sensor::reset()
 	setRegister(Reset, 0xB6);
 }
 
-#include <Wire.h>
-
+/*!
+	@brief Get trimming parameters required to calculate temperature and pressure.
+	@details Function reads 24 bytes of data from sensor and stores them in
+		calibration data structure. This data is used to calculate temperature
+		and pressure.
+	@note This function should be called after power on reset of BMP280 module.
+	@return True if read was successful., false if I2C error occurs.
+*/
 bool BMP280_Sensor::getTrimmingParameters()
 {
 	uint8_t buffer[24] = {};
 	uint8_t regVal = DIG_T1_Reg;
-
 	if (_commMode == CommMode_e::I2C)
 	{
 		// Write the starting register address with repeated start
@@ -613,9 +625,17 @@ bool BMP280_Sensor::getTrimmingParameters()
 		for (uint8_t i = 0; i < 24; ++i)
 			buffer[i] = Wire.read();
 	}
-	else
-	{
-		// SPI communication not implemented
+	else{
+		BMP_SPI_TRANSACTION_START;
+		digitalWrite(_csPin, LOW);
+		regVal |= _SPI_COMM_MASK; // Set bit 7 for read operation
+		SPI.transfer(regVal); // Send register address
+		for (uint8_t i = 0; i < 24; ++i)
+		{
+			buffer[i] = SPI.transfer(0x00); // Dummy write to read data
+		}
+		digitalWrite(_csPin, HIGH);
+		BMP_SPI_TRANSACTION_END;
 	}
 
 	calib_data_t.dig_T1 = (buffer[1] << 8) | buffer[0];
@@ -732,6 +752,13 @@ bool BMP280_Sensor::takeForcedMeasurement() {
 */
 int16_t BMP280_Sensor::CheckConnectionI2C(void)
 {
+	if (_commMode != CommMode_e::SPI)
+	{
+		#if BMP280_DEBUG
+		Serial.println("BMP280::CheckConnectionI2C. Error: Not I2C mode.");
+		#endif
+		return -1; // Not I2C mode
+	}
 	uint8_t rxData = 0;
 	int16_t returnValue = 0;
 	// Request 1 byte from the device

@@ -1,11 +1,9 @@
 /*!
 	@file bmp280_ltsm.hpp
-	@brief library header file for bmp280 pressure sensor 
-	@todo add I2C support
+	@brief  header file for bmp280 pressure sensor library, arduino library
 */
 
 #pragma once
-
 
 #if ARDUINO >= 100
  #include "Arduino.h"
@@ -15,11 +13,26 @@
 #endif
 
 #include "Wire.h"
-//#include <SPI.h>
-#include <cmath> // for pow function
+#include <SPI.h>
 
-//#define BMP280_DEBUG 0 
-#define BMP280_DEBUG 1 /*! Enable debug messages, set to 1 to enable debug messages*/
+// --- Debug settings ---
+#define BMP280_DEBUG 0 /*! Enable debug messages , 38400 baud, set to 1 to enable debug messages*/
+
+// --- SPI settings ---
+#define BMP_SPI_FREQ 500000              /**< Mhz SPI bus baud rate  */
+#define BMP_SPI_CLOCK_DIV SPI_CLOCK_DIV8  /**< SPI bus baud rate, STM32 data use only */
+#define BMP_SPI_DIRECTION  MSBFIRST       /**< SPI data bit order orientation */
+#define BMP_SPI_MODE SPI_MODE0     /**< SPI Mode 0-3 */
+//There is a pre-defined macro SPI_HAS_TRANSACTION in SPI library for checking 
+ //whether the firmware of the Arduino board supports SPI.beginTransaction().
+#ifdef SPI_HAS_TRANSACTION
+    #define BMP_SPI_TRANSACTION_START SPI.beginTransaction(SPISettings(BMP_SPI_FREQ, BMP_SPI_DIRECTION, BMP_SPI_MODE)) 
+    #define BMP_SPI_TRANSACTION_END SPI.endTransaction()   
+#else // SPI transactions likewise not present in MCU or lib
+    #define BMP_SPI_TRANSACTION_START SPI.setClockDivider(BMP_SPI_CLOCK_DIV) // 72/8 = 9Mhz
+    #define BMP_SPI_TRANSACTION_END  // Blank 
+#endif
+
 
 /*! 
 	@brief BMP280 sensor class.
@@ -30,7 +43,7 @@
 class BMP280_Sensor
 {
 public:
-	//BMP280_Sensor(spi_inst_t *spi, uint32_t baudRate, uint8_t cs, uint8_t mosi, uint8_t sck, uint8_t miso);
+	BMP280_Sensor(uint8_t csPin); 
 	BMP280_Sensor(uint8_t I2Caddress, TwoWire *twi);
 	~BMP280_Sensor();
 
@@ -167,13 +180,8 @@ private:
 	uint8_t _address;       /**< I2C address */
 	TwoWire *wire;  /**< I2C wire interface */
 
-	// spi_inst_t *_spiInst;   /**< SPI instance */
-	// uint32_t _baudRate;     /**< SPI  or I2C baudrate in hertz */
-	// static constexpr uint8_t _SPI_COMM_MASK = 0x80; /**< SPI communication mask*/
-	// uint8_t _cs;            /**< Chip select pin , SPI Only*/
-	// uint8_t _mosi;          /**< Master out slave in pin for SPI, of SDA for I2C */
-	// uint8_t _sck;           /**< Serial clock pin , SPI and I2C */
-	// uint8_t _miso;          /**< Master in slave out pin , SPI only*/
+	static constexpr uint8_t _SPI_COMM_MASK = 0x80; /**< SPI communication mask*/
+	uint8_t _csPin;                     /**< Chip select pin for SPI communication */
 
 	uint8_t _chipID;                  /**< Chip ID 0x56-0X58 BMP280 , 0x60 BME280*/
 	sensorSampling_e _temperatureOversampling; /**< Temperature Over sampling */
@@ -194,7 +202,7 @@ private:
 	struct 
 	{
 		uint16_t dig_T1; /**< dig_T1 cal register. */
-		int16_t dig_T2;  /**<  dig_T2 cal register. */
+		int16_t dig_T2;  /**< dig_T2 cal register. */
 		int16_t dig_T3;  /**< dig_T3 cal register. */
 		uint16_t dig_P1; /**< dig_P1 cal register. */
 		int16_t dig_P2;  /**< dig_P2 cal register. */
