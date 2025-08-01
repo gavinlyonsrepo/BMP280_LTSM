@@ -1,10 +1,27 @@
-# BMP280
+[![Website](https://img.shields.io/badge/Website-Link-blue.svg)](https://gavinlyonsrepo.github.io/)  [![Rss](https://img.shields.io/badge/Subscribe-RSS-yellow.svg)](https://gavinlyonsrepo.github.io//feed.xml)  [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/paypalme/whitelight976)
 
-![ Pinout](https://github.com/gavinlyonsrepo/sensors_PICO/blob/main/extra/images/bmp280.jpg)
+# BMP280_LTSM README
+
+## Table of contents
+
+## Table of contents
+
+- [Overview](#overview)
+- [Installation](#installation)
+- [Software](#software)
+	- [Default settings](#default-settings)
+	- [Power modes](#power-modes)
+	- [Debug mode](#debug-mode)
+	- [API documentation](#api-documentation)
+- [Hardware](#hardware)
+	- [SPI connections](#spi-connections)
+	- [I2C connections](#i2c-connections)
+- [Output](#output)
+
 
 ## Overview
 
-* Name: BMP280
+* Name: BMP280_LTSM
 * Description:
 
 Arduino Library for Bosch BMP280 Digital pressure sensor.
@@ -23,7 +40,15 @@ Arduino Library for Bosch BMP280 Digital pressure sensor.
 
 * [Datasheet](https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmp280-ds001.pdf)
 
-## Default settings
+## Installation
+
+The library is included in the official Arduino library manger 
+and the optimum way to install it is using the library manager 
+which can be opened by the *manage libraries* option in Arduino IDE. 
+
+## Software
+
+### Default settings
 
 | BMP280 Setting | Default Enumeration |
 |------------|----------|
@@ -32,6 +57,8 @@ Arduino Library for Bosch BMP280 Digital pressure sensor.
 | Standby Duration         | StandBy_MS_1 (0) |
 | Filter                   | Filter_Off (0)|
 | Power mode               | Normal (2) |
+
+### Power modes 
 
 BMP280 can be operated in three power modes.
 
@@ -44,6 +71,8 @@ perpetual cycling between an active measurement period and an inactive standby p
 forced mode, a single measurement is performed. When the measurement is finished, the
 sensor returns to sleep mode.
 
+### Debug mode
+
 Debug mode with serial messages on 38400 baud can be enabled.
 
 ```
@@ -51,13 +80,19 @@ Debug mode with serial messages on 38400 baud can be enabled.
 #define BMP280_DEBUG 0 /*! Enable debug messages , 38400 baud, set to 1 to enable debug messages*/
 ```
 
-## Connections
+### API documentation
+
+The code is commented for doxygen and an application programming interface can be created using the doxygen software program.
+
+## Hardware
 
 The Sensor uses SPI or I2C for communication's. GPIO numbers in tables below is for ESP32,
 adjust for your arduino MCU type.
 The BMP280 is a 3.3V device.
 
-### SPI Connections
+![ Pinout](https://github.com/gavinlyonsrepo/sensors_PICO/blob/main/extra/images/bmp280.jpg)
+
+### SPI connections
 
 The BMP280 can be connected to the MCU using SPI. 
 The following table shows the pin connections between the BMP280 and MCU(ESP32 in this case).
@@ -71,7 +106,7 @@ Can be set up for any SPI interface and bus speed by changing SPI settings in he
 | SCL        | SCK (Clock)      | GPIO 18 CLK VSPI  | SPI Clock |
 | SDO        | MISO (Data Out)  | GPIO 19 MISO VSPI  | Master In Slave Out |
 
-### I2C Connections
+### I2C connections
 
 The BMP280 can be connected to the MCU using I2C. 
 The following table shows the pin connections between the BMP280 and the MCU(ESP32 in this case).
@@ -88,5 +123,4 @@ The I2C address of the BMP280 is 0x76 or 0x77 depending on the SDO pin connectio
 
 ## Output
 
-
- ![ op](https://github.com/gavinlyonsrepo/sensors_PICO/blob/main/extra/images/bmpoutput.png)
+![ op](https://github.com/gavinlyonsrepo/sensors_PICO/blob/main/extra/images/bmpoutput.png)
