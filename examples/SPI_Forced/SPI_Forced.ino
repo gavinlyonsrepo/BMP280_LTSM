@@ -11,25 +11,15 @@
 #include "bmp280_ltsm.hpp"
 
 uint8_t ChipSelectPin = 4;  // User defined chip select pin, D4
-BMP280_Sensor bmp280(ChipSelectPin);
+uint32_t SPIBaudRate =  500000; // SPI baudrate
+BMP280_Sensor bmp280(ChipSelectPin, SPIBaudRate);
 
 void setup() {
   Serialinit();
+  SensorInit();
 }
 
 void loop() {
-  printf("\n--- START Forced SPI---\n");
-
-  bmp280.InitSensor();
-
-  uint8_t chipID = 0;
-  chipID = bmp280.readForChipID();
-  Serial.print("CHIP ID: ");
-  Serial.println(chipID, HEX);  // Should read 0x56-0x58 for BMP280 060 for BME280
-  delay(2000);
-
-  bmp280.setPowerMode(BMP280_Sensor::PowerMode_e::Forced); //Set forced mode ON
-
   uint16_t counter = 0;
   while (counter < 60) {
     Serial.print("Test Count: ");
@@ -63,4 +53,18 @@ void Serialinit() {
   Serial.begin(38400);
   delay(1000);
   Serial.println("--Comms UP BMP280--");
+}
+
+// Function to init Sensor
+void SensorInit(){
+  Serial.println("--- START Forced SPI ---");
+  bmp280.InitSensor();
+
+  uint8_t chipID = 0;
+  chipID = bmp280.readForChipID();
+  Serial.print("CHIP ID: ");
+  Serial.println(chipID, HEX);  // Should read 0x56-0x58 for BMP280, 0x60 for BME280
+  delay(1000);
+
+  bmp280.setPowerMode(BMP280_Sensor::PowerMode_e::Forced); //Set forced mode ON
 }

@@ -18,22 +18,6 @@
 // --- Debug settings ---
 #define BMP280_DEBUG 0 /*! Enable debug messages , 38400 baud, set to 1 to enable debug messages*/
 
-// --- SPI settings ---
-#define BMP_SPI_FREQ 500000              /**< Mhz SPI bus baud rate  */
-#define BMP_SPI_CLOCK_DIV SPI_CLOCK_DIV8  /**< SPI bus baud rate, STM32 data use only */
-#define BMP_SPI_DIRECTION  MSBFIRST       /**< SPI data bit order orientation */
-#define BMP_SPI_MODE SPI_MODE0     /**< SPI Mode 0-3 */
-//There is a pre-defined macro SPI_HAS_TRANSACTION in SPI library for checking 
- //whether the firmware of the Arduino board supports SPI.beginTransaction().
-#ifdef SPI_HAS_TRANSACTION
-    #define BMP_SPI_TRANSACTION_START SPI.beginTransaction(SPISettings(BMP_SPI_FREQ, BMP_SPI_DIRECTION, BMP_SPI_MODE)) 
-    #define BMP_SPI_TRANSACTION_END SPI.endTransaction()   
-#else // SPI transactions likewise not present in MCU or lib
-    #define BMP_SPI_TRANSACTION_START SPI.setClockDivider(BMP_SPI_CLOCK_DIV) // 72/8 = 9Mhz
-    #define BMP_SPI_TRANSACTION_END  // Blank 
-#endif
-
-
 /*! 
 	@brief BMP280 sensor class.
 	@details This class provides methods to interact with the BMP280 sensor, 
@@ -43,8 +27,8 @@
 class BMP280_Sensor
 {
 public:
-	BMP280_Sensor(uint8_t csPin); 
-	BMP280_Sensor(uint8_t I2Caddress, TwoWire *twi);
+	BMP280_Sensor(uint8_t csPin, uint32_t speedSPIHz = 500000); 
+	BMP280_Sensor(uint8_t I2Caddress, TwoWire *twi, uint32_t i2cClock = 100000);
 	~BMP280_Sensor();
 
 	/*! @brief Communications mode*/
@@ -177,9 +161,12 @@ public:
 	double seaLevelForAltitude(double altitude, double atmospheric);
 
 private:
+	// I2C
 	uint8_t _address;       /**< I2C address */
 	TwoWire *wire;  /**< I2C wire interface */
-
+	uint32_t _I2C_clock = 100000; /**< I2C clock speed in hertz */
+	// SPI
+	uint32_t _speedSPIHz;  /**< SPI baudrate in hertz */
 	static constexpr uint8_t _SPI_COMM_MASK = 0x80; /**< SPI communication mask*/
 	uint8_t _csPin;                     /**< Chip select pin for SPI communication */
 
@@ -217,4 +204,6 @@ private:
 
 	bool getTrimmingParameters(void);
 	void StartUpRoutine(void);
+	void spiStartTransaction(void);
+	void spiEndTransaction(void);
 };

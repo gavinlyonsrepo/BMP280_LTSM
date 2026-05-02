@@ -1,23 +1,73 @@
 /*!
-	@file SPI_normal.ino
-	@brief arduino C++ bmp280 library test file, basic use, normal mode , SPI hardware
+	@file    SPI_normal.ino
+	@brief   arduino C++ bmp280 library test file, basic use, normal mode , SPI hardware
 	@details bmp280 is a digital pressure sensor with temperature measurement capabilities.
-          connections ESP32, D23 = MOSI(SDA), D19 = MISO(SDO), D18 = SCLK, User defined = CS(CSB)
-          Normal mode comprises an automated
-          perpetual cycling between an active measurement period and an inactive standby period.
-  @author Gavin lyons at LionTron Systems
+           connections ESP32, D23 = MOSI(SDA), D19 = MISO(SDO), D18 = SCLK, User defined = CS(CSB)
+           Normal mode comprises an automated
+           perpetual cycling between an active measurement period and an inactive standby period.
+  @author  Gavin lyons at LionTron Systems
 */
 
 #include "bmp280_ltsm.hpp"
 
 uint8_t ChipSelectPin = 4;  // User defined chip select pin, D4
-BMP280_Sensor bmp280(ChipSelectPin);
+uint32_t SPIBaudRate =  500000; // SPI baudrate
+BMP280_Sensor bmp280(ChipSelectPin, SPIBaudRate);
+// Local Pressure , Replace with today's QNH from forecast [hPa]
+#define LOCAL_PRESSURE  1013.25  
 
 void setup() {
   Serialinit();
+  SensorInit();
 }
 
 void loop() {
+  PrintSensorInfo();
+  Serial.println("--- END ---");
+  while(1){}; // wait here forever
+}
+
+// Print Sensor info
+void PrintSensorInfo(){
+  uint16_t counter = 0;
+  while (counter < 60) {
+    Serial.print("Test Count: ");
+    Serial.println(counter, DEC);
+    Serial.println("---");
+    // Test 1 Temperature
+    Serial.print("Temperature oversampling: ");
+    Serial.println(static_cast<uint8_t>(bmp280.readOversampling(BMP280_Sensor::DataType_e::Temperature)));
+    Serial.print("Temperature: [C] = ");
+    Serial.println(bmp280.readTemperature(), 2);
+    Serial.println("---");
+    // Test 2 Pressure
+    Serial.print("Pressure oversampling: ");
+    Serial.println(static_cast<uint8_t>(bmp280.readOversampling(BMP280_Sensor::DataType_e::Pressure)));
+    Serial.print("Pressure: [hPa] = ");
+    Serial.println(bmp280.readPressure(BMP280_Sensor::PressureUnit_e::hPa), 2);
+    Serial.println("---");
+    //Test 3 Altitude adjustment optional
+    Serial.print("altitude: [meters]  = ");
+    double altMets = bmp280.readAltitude(LOCAL_PRESSURE); // altitude in meters method 1
+    //double altMets = 96;                                // altitude in meters method 2
+    Serial.println(altMets);
+    Serial.print("Pressure adjusted: [hPa  = ");
+    Serial.println(bmp280.seaLevelForAltitude(altMets, bmp280.readPressure(BMP280_Sensor::PressureUnit_e::hPa)));
+    Serial.println("---");
+    delay(3000);
+    counter++;
+  }
+}
+
+// Function to setup serial called from setup
+void Serialinit() {
+  Serial.begin(38400);
+  delay(1000);
+  Serial.println("--Comms UP BMP280--");
+}
+
+// Function to init Sensor
+void SensorInit(){
   Serial.println("--- START Normal SPI ---");
   bmp280.InitSensor();
 
@@ -26,36 +76,4 @@ void loop() {
   Serial.print("CHIP ID: ");
   Serial.println(chipID, HEX);  // Should read 0x56-0x58 for BMP280, 0x60 for BME280
   delay(2000);
-
-  uint16_t counter = 0;
-  while (counter < 60) {
-    Serial.print("Test Count: ");
-    Serial.println(counter, DEC);
-    // Test 1 Temperature
-    Serial.print("Temperature oversampling: ");
-    Serial.println(static_cast<uint8_t>(bmp280.readOversampling(BMP280_Sensor::DataType_e::Temperature)));
-    Serial.print("Temperature: [C] = ");
-    Serial.println(bmp280.readTemperature(), 2);
-    // Test 2 Pressure
-    Serial.print("Pressure oversampling: ");
-    Serial.println(static_cast<uint8_t>(bmp280.readOversampling(BMP280_Sensor::DataType_e::Pressure)));
-    Serial.print("Pressure: [hPa] = ");
-    Serial.println(bmp280.readPressure(BMP280_Sensor::PressureUnit_e::hPa), 2);
-    Serial.println("");
-    // Test 2C Altitude adjustment optional
-    //uint16_t altMets = 95; // altitude in meters
-    //Serial.print("Pressure adjusted: [hPa]");
-    //Serial.println(bmp280.seaLevelForAltitude(altMets, bmp280.readPressure(BMP280_Sensor::PressureUnit_e::hPa)));
-    delay(3000);
-    counter++;
-  }
-  Serial.println("--- END ---");
-  while(1){};
-}
-
-//Function to setup serial called from setup
-void Serialinit() {
-  Serial.begin(38400);
-  delay(1000);
-  Serial.println("--Comms UP BMP280--");
 }

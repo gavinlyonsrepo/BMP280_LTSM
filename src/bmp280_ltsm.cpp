@@ -8,9 +8,12 @@
 /*!
 	@brief Constructor SPI mode.
 	@param csPin Chip select pin for SPI communication.
+	@param speedSPIHz SPI baud rate in hertz 
+	
 */
-BMP280_Sensor::BMP280_Sensor(uint8_t csPin) {
+BMP280_Sensor::BMP280_Sensor(uint8_t csPin, uint32_t speedSPIHz) {
 	_csPin = csPin;
+	_speedSPIHz = speedSPIHz;
 	_commMode = CommMode_e::SPI;
 }
 
@@ -18,10 +21,12 @@ BMP280_Sensor::BMP280_Sensor(uint8_t csPin) {
 	@brief Constructor I2C mode.
 	@param address I2C address of the sensor.
 	@param twi Pointer to the TwoWire instance for I2C communication.
+	@param i2cClock I2C clock speed in hertz (default 100000).
 */
-BMP280_Sensor::BMP280_Sensor(uint8_t address, TwoWire *twi){
+BMP280_Sensor::BMP280_Sensor(uint8_t address, TwoWire *twi,uint32_t i2cClock){
 	_address  = address;
 	wire = twi;
+	_I2C_clock = i2cClock;
 	_commMode = CommMode_e::I2C;
 }
 
@@ -35,6 +40,7 @@ bool BMP280_Sensor::InitSensor(void)
 	{
 			int I2CReturnCode= 0;
 			wire->begin();
+			wire->setClock(_I2C_clock);
 			wire->beginTransmission(_address);
 			I2CReturnCode = wire->endTransmission();
 			if (I2CReturnCode!= 0)
@@ -119,7 +125,7 @@ int32_t BMP280_Sensor::getData(Registers_e reg, bool threeRegsRead)
 	uint8_t regVal = static_cast<uint8_t>(reg);
 	if (_commMode == CommMode_e::SPI)
 	{
-		BMP_SPI_TRANSACTION_START;	
+		spiStartTransaction();	
 		digitalWrite(_csPin, LOW);
 		regVal |= _SPI_COMM_MASK;
 		SPI.transfer(regVal); // Send register address with read bit set
@@ -134,12 +140,12 @@ int32_t BMP280_Sensor::getData(Registers_e reg, bool threeRegsRead)
 			result = buffer[0];
 		}
 		digitalWrite(_csPin, HIGH);
-		BMP_SPI_TRANSACTION_END;
+		spiEndTransaction();
 	}else{
 		// Write register address
-		Wire.beginTransmission(_address);
-		Wire.write(regVal);
-		int returnValue = Wire.endTransmission(false);
+		wire->beginTransmission(_address);
+		wire->write(regVal);
+		int returnValue = wire->endTransmission(false);
 		if (returnValue != 0)
 		{
 			#if BMP280_DEBUG
@@ -150,7 +156,7 @@ int32_t BMP280_Sensor::getData(Registers_e reg, bool threeRegsRead)
 		}
 		if (threeRegsRead)
 		{
-			int bytesRead = Wire.requestFrom((int)_address, 3);
+			int bytesRead = wire->requestFrom((int)_address, 3);
 			if (bytesRead < 3)
 			{
 				#if BMP280_DEBUG
@@ -159,15 +165,15 @@ int32_t BMP280_Sensor::getData(Registers_e reg, bool threeRegsRead)
 				#endif
 				return -1;
 			}
-			buffer[0] = Wire.read();
-			buffer[1] = Wire.read();
-			buffer[2] = Wire.read();
+			buffer[0] = wire->read();
+			buffer[1] = wire->read();
+			buffer[2] = wire->read();
 
 			result = ((uint32_t)buffer[0] << 12) |
 			         ((uint32_t)buffer[1] << 4) |
 			         ((uint32_t)buffer[2] >> 4);
 		}else{
-			int bytesRead = Wire.requestFrom((int)_address, 1);
+			int bytesRead = wire->requestFrom((int)_address, 1);
 			if (bytesRead < 1)
 			{
 				#if BMP280_DEBUG
@@ -176,7 +182,7 @@ int32_t BMP280_Sensor::getData(Registers_e reg, bool threeRegsRead)
 				#endif
 				return -1;
 			}
-			buffer[0] = Wire.read();
+			buffer[0] = wire->read();
 			result = buffer[0];
 		}
 	}
@@ -199,10 +205,10 @@ bool BMP280_Sensor::setRegister(Registers_e reg, uint8_t config, bool check)
 	uint8_t regVal = static_cast<uint8_t>(reg);
 	if (_commMode == CommMode_e::I2C)
 	{
-		Wire.beginTransmission(_address);
-		Wire.write(regVal);
-		Wire.write(config);
-		int returnValue = Wire.endTransmission(); // send with stop
+		wire->beginTransmission(_address);
+		wire->write(regVal);
+		wire->write(config);
+		int returnValue = wire->endTransmission(); // send with stop
 		if (returnValue != 0)
 		{
 			#if BMP280_DEBUG
@@ -212,13 +218,13 @@ bool BMP280_Sensor::setRegister(Registers_e reg, uint8_t config, bool check)
 			return false;
 		}
 	}else{
-		BMP_SPI_TRANSACTION_START;
+		spiStartTransaction();
 		digitalWrite(_csPin, LOW);
 		uint8_t writeAddr = regVal & ~_SPI_COMM_MASK;
 		SPI.transfer(writeAddr);   // Send register address
 		SPI.transfer(config);      // Send the data byte
 		digitalWrite(_csPin, HIGH);
-		BMP_SPI_TRANSACTION_END;
+		spiEndTransaction();
 	}
 
 	if (!check)
@@ -240,9 +246,9 @@ uint8_t BMP280_Sensor::readRegister(Registers_e reg)
 	{
 		uint8_t regVal = static_cast<uint8_t>(reg);
 		// Write the register address with a repeated start
-		Wire.beginTransmission(_address);
-		Wire.write(regVal);
-		int returnValue = Wire.endTransmission(false); // repeated start, no stop
+		wire->beginTransmission(_address);
+		wire->write(regVal);
+		int returnValue = wire->endTransmission(false); // repeated start, no stop
 		if (returnValue != 0)
 		{
 			#if BMP280_DEBUG
@@ -252,7 +258,7 @@ uint8_t BMP280_Sensor::readRegister(Registers_e reg)
 			return 0xFF;
 		}
 		// Request 1 byte from the register
-		int bytesRead = Wire.requestFrom((int)_address, 1);
+		int bytesRead = wire->requestFrom((int)_address, 1);
 		if (bytesRead < 1)
 		{
 			#if BMP280_DEBUG
@@ -261,15 +267,15 @@ uint8_t BMP280_Sensor::readRegister(Registers_e reg)
 			#endif
 			return 0xFF;
 		}
-		buffer = Wire.read();
+		buffer = wire->read();
 	}else{
-		BMP_SPI_TRANSACTION_START;
+		spiStartTransaction();
 		digitalWrite(_csPin, LOW);
 		uint8_t regVal = static_cast<uint8_t>(reg) | _SPI_COMM_MASK; // set MSB for read
 		SPI.transfer(regVal); // send register address
 		buffer = SPI.transfer(0x00); // dummy byte to receive data
 		digitalWrite(_csPin, HIGH);
-		BMP_SPI_TRANSACTION_END;
+		spiEndTransaction();
 	}
 
 	return buffer;
@@ -600,9 +606,9 @@ bool BMP280_Sensor::getTrimmingParameters()
 	if (_commMode == CommMode_e::I2C)
 	{
 		// Write the starting register address with repeated start
-		Wire.beginTransmission(_address);
-		Wire.write(regVal);
-		int returnValue = Wire.endTransmission(false); // repeated start
+		wire->beginTransmission(_address);
+		wire->write(regVal);
+		int returnValue = wire->endTransmission(false); // repeated start
 		if (returnValue != 0)
 		{
 			#if BMP280_DEBUG
@@ -612,7 +618,7 @@ bool BMP280_Sensor::getTrimmingParameters()
 			return false;
 		}
 		// Read 24 bytes of trimming data
-		int bytesRead = Wire.requestFrom((int)_address, 24);
+		int bytesRead = wire->requestFrom((int)_address, 24);
 		if (bytesRead < 24)
 		{
 			#if BMP280_DEBUG
@@ -623,10 +629,10 @@ bool BMP280_Sensor::getTrimmingParameters()
 		}
 
 		for (uint8_t i = 0; i < 24; ++i)
-			buffer[i] = Wire.read();
+			buffer[i] = wire->read();
 	}
 	else{
-		BMP_SPI_TRANSACTION_START;
+		spiStartTransaction();
 		digitalWrite(_csPin, LOW);
 		regVal |= _SPI_COMM_MASK; // Set bit 7 for read operation
 		SPI.transfer(regVal); // Send register address
@@ -635,7 +641,7 @@ bool BMP280_Sensor::getTrimmingParameters()
 			buffer[i] = SPI.transfer(0x00); // Dummy write to read data
 		}
 		digitalWrite(_csPin, HIGH);
-		BMP_SPI_TRANSACTION_END;
+		spiEndTransaction();
 	}
 
 	calib_data_t.dig_T1 = (buffer[1] << 8) | buffer[0];
@@ -752,23 +758,21 @@ bool BMP280_Sensor::takeForcedMeasurement() {
 */
 int16_t BMP280_Sensor::CheckConnectionI2C(void)
 {
-	if (_commMode != CommMode_e::SPI)
+	if (_commMode == CommMode_e::SPI)
 	{
 		#if BMP280_DEBUG
 		Serial.println("BMP280::CheckConnectionI2C. Error: Not I2C mode.");
 		#endif
-		return -1; // Not I2C mode
+		return -1;
 	}
-	uint8_t rxData = 0;
-	int16_t returnValue = 0;
-	// Request 1 byte from the device
-	returnValue = Wire.requestFrom((int)_address, 1);
-	if (returnValue >= 1)
-	{
-		rxData = Wire.read(); // read the byte
-	}
+	int16_t returnValue = wire->requestFrom((int)_address, 1);
 
 #if BMP280_DEBUG
+	uint8_t rxData = 0;
+	if (returnValue >= 1)
+	{
+		rxData = wire->read();
+	}
 	Serial.println("BMP280::CheckConnection. Info");
 	Serial.print("I2C Return value = ");
 	Serial.print(returnValue);
@@ -778,9 +782,48 @@ int16_t BMP280_Sensor::CheckConnectionI2C(void)
 		Serial.println("Connected.");
 	else
 		Serial.println("Not Connected.");
+#else
+	// still need to consume the byte if present
+	if (returnValue >= 1)
+	{
+		wire->read();
+	}
 #endif
-
 	return returnValue;
 }
 
-// ---------------- End of file ----------------
+/*!
+	@brief Begin an SPI transaction for the display.
+ */
+void BMP280_Sensor::spiStartTransaction(void)
+{
+	//There is a pre-defined macro SPI_HAS_TRANSACTION in SPI library for checking 
+	//whether the firmware of the Arduino board supports SPI.beginTransaction().
+	if (_commMode == CommMode_e::SPI)
+	{
+		#ifdef SPI_HAS_TRANSACTION
+			SPI.beginTransaction(SPISettings(_speedSPIHz, MSBFIRST, SPI_MODE0)); 
+		#else // SPI transactions likewise not present in MCU or lib
+			SPI.setClockDivider(SPI_CLOCK_DIV8); // 72/8 = 9Mhz
+		#endif
+	}
+}
+
+/*!
+	@brief End an SPI transaction for the display.
+ */
+void BMP280_Sensor::spiEndTransaction(void)
+{
+	//There is a pre-defined macro SPI_HAS_TRANSACTION in SPI library for checking 
+	//whether the firmware of the Arduino board supports SPI.endTransaction().
+	if (_commMode == CommMode_e::SPI)
+	{
+		#ifdef SPI_HAS_TRANSACTION
+			SPI.endTransaction(); 
+		#else // SPI transactions likewise not present in MCU or lib
+			// Blank
+		#endif
+	}
+	
+}
+//------------- End of file ----------------
